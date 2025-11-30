@@ -1,12 +1,13 @@
 from typing import List, Dict, Any
 from datetime import datetime
-from .base import BaseAdapter
+from .base import BaseBackend
 import logging
 from integrations.models import Integration
 import requests
 
-class TenableAdapter(BaseAdapter):
+class TenableBackend(BaseBackend):
     def __init__(self, config):
+        print(type(config))
         base_url = config.get("base_url")
         access_key = config.get("access_key")
         secret_key = config.get("secret_key")

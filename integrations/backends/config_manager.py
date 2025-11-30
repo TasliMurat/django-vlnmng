@@ -3,21 +3,18 @@ from ..models import Integration
 
 class IntegrationConfigService:
     @staticmethod
-    def create_integration(name, provider_type, base_data, config_data, user):
+    def create_integration(name, provider, config_data, is_Active):
         """
         Creates a new integration.
         """
         # In a real app, encrypt sensitive keys in config_data here before saving.
         integration = Integration(
             name=name,
-            provider_type=provider_type,
+            provider=provider,
             config=config_data,  # Saves the dict as JSON
-            is_active=base_data.get('is_active', True)
+            is_active=is_Active
         )
         integration.save()
-
-        if 'allowed_users' in base_data:
-            integration.allowed_users.set(base_data['allowed_users'])
             
         return integration
 

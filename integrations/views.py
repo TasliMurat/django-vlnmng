@@ -4,9 +4,10 @@ from django.contrib import messages
 
 from django.shortcuts import render
 from django.http import JsonResponse
+from integrations.factories import BackendFactory
 from users.decorators import has_integration_permission
 from .models import Integration, IntegrationType, SeverityLevel
-from integrations.adapters.tenable import TenableAdapter
+from integrations.backends.tenable import TenableBackend
 from django.http import HttpResponse
 
 @has_integration_permission("tenable_sc", "can_execute")
@@ -23,22 +24,22 @@ def integration_detail(request, pk):
     severities = SeverityLevel.choices
     return render(request, "integrations/detail.html", {"integration": integration, "severities": severities})
 
-def CreateUpdateConfigView(request, adapter_type):
+def IntegrationConfigView(request, provider):
     if request.method == 'POST':
         # 1. Get Form Data
         name = request.POST.get('integration_name', '')
-        integration_type = adapter_type
         config = request.POST.get('adapter_config', {})
 
         # 2. Validation
-        if not all([name, integration_type, config]):
+        if not all([name, config]):
             # You must RETURN here to stop execution
             return JsonResponse({'status': 'error', 'message': 'All fields are required.'}, status=400)
 
         # 3. Connection Test
         try:
-            adapter = TenableAdapter({"access_key": "dnfkldsnfds", "secret_key": "lkdsfsdpof"}) 
+            adapter = BackendFactory.get_adapter(provider, config=config) 
             is_connected = adapter.validate_connection()
+            print(is_connected)
 
             if is_connected:
                 # Logic to save to DB would go here

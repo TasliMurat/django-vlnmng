@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class BaseAdapter(ABC):
+class BaseBackend(ABC):
     """
     Tüm entegrasyon servislerinin türetileceği temel sınıf.
     Her entegrasyon bu arayüzü implement etmek zorunda.

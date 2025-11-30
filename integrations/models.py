@@ -22,7 +22,7 @@ class SeverityLevel(models.TextChoices):
 class Integration(models.Model):
     """Entegrasyon tanımları"""
     name = models.CharField(max_length=100)
-    type = models.CharField(max_length=20, choices=IntegrationType.choices)
+    provider = models.CharField(max_length=20, choices=IntegrationType.choices)
     config = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     slug = AutoSlugField(populate_from='type', unique=True)
@@ -32,7 +32,7 @@ class Integration(models.Model):
 
 
     class Meta:
-        unique_together = ['name', 'type']
+        unique_together = ['name', 'provider']
     
     def __str__(self):
         return f"{self.name} ({self.get_type_display()})"
