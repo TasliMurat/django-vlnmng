@@ -1,0 +1,11 @@
+<h2>{{ integration.name }} - {{ integration.get_type_display }}</h2>
+<p>API URL: {{ integration.api_url }}</p>
+<form method="post">
+  {% csrf_token %}
+  <label>Start Date: <input type="date" name="start_date"></label><br>
+  <label>Severities:</label><br>
+  {% for value,label in severities %}
+    <input type="checkbox" name="severities" value="{{ value }}"> {{ label }}<br>
+  {% endfor %}
+  <button type="submit">Run Integration</button>
+</form>
