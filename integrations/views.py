@@ -1,14 +1,14 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.contrib import messages
 # Create your views here.
-
-from django.shortcuts import render
-from django.http import JsonResponse
+from .backends.config_manager import IntegrationConfigService
 from integrations.factories import BackendFactory
 from users.decorators import has_integration_permission
-from .models import Integration, IntegrationType, SeverityLevel
-from integrations.backends.tenable import TenableBackend
-from django.http import HttpResponse
+from .models import Integration, SeverityLevel
+from django.http import HttpResponse, JsonResponse
+import json
+from .forms import IntegrationConfigForm
+import traceback
 
 @has_integration_permission("tenable_sc", "can_execute")
 def run_tenable(request):
@@ -24,32 +24,49 @@ def integration_detail(request, pk):
     severities = SeverityLevel.choices
     return render(request, "integrations/detail.html", {"integration": integration, "severities": severities})
 
-def IntegrationConfigView(request, provider):
+def IntegrationConfigView(request, provider, pk=None):
     if request.method == 'POST':
-        # 1. Get Form Data
-        name = request.POST.get('integration_name', '')
-        config = request.POST.get('adapter_config', {})
+        form = IntegrationConfigForm(request.POST)
 
-        # 2. Validation
-        if not all([name, config]):
-            # You must RETURN here to stop execution
-            return JsonResponse({'status': 'error', 'message': 'All fields are required.'}, status=400)
+        if form.is_valid():
+            # Verileri cleaned_data üzerinden alıyoruz
+            name = form.cleaned_data["name"]
+            config = form.cleaned_data["config"]
+            is_active = form.cleaned_data["is_active"] # required=False olsa bile buraya True/False gelir.
 
-        # 3. Connection Test
-        try:
-            adapter = BackendFactory.get_adapter(provider, config=config) 
-            is_connected = adapter.validate_connection()
-            print(is_connected)
+            try:
+                # Backend Factory çağır
+                adapter = BackendFactory.get_adapter(provider, config=config) 
+                is_connected = adapter.validate_connection()
 
-            if is_connected:
-                # Logic to save to DB would go here
-                return JsonResponse({'status': 'success', 'message': 'Connection is successful.'})
-            else:
-                return JsonResponse({'status': 'error', 'message': 'Connection failed.'}, status=400)
+                if is_connected:
+                    if pk:
+                         IntegrationConfigService.update_integration(
+                             name=name, provider=provider, config=config, is_active=is_active, pk=pk
+                         )
+                    else:
+                         IntegrationConfigService.create_integration(
+                             name=name, provider=provider, config=config, is_active=is_active
+                         )
+
+                    return JsonResponse({'status': 'success', 'message': 'Connection is successful.'})
+                else:
+                    return JsonResponse({'status': 'error', 'message': 'Connection failed.'}, status=400)
+            
+            except Exception as e:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': str(e),
+                    'traceback': traceback.format_exc()
+                }, status=500)
         
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        else:
+            # Form validasyon hataları
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Validasyon hatası',
+                'errors': form.errors
+            }, status=400)
 
     else:
-        # For GET requests
         return HttpResponse("Tenable config page")

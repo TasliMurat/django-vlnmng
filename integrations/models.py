@@ -25,7 +25,7 @@ class Integration(models.Model):
     provider = models.CharField(max_length=20, choices=IntegrationType.choices)
     config = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
-    slug = AutoSlugField(populate_from='type', unique=True)
+    slug = AutoSlugField(populate_from='provider', unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
