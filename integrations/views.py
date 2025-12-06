@@ -1,23 +1,17 @@
 from django.shortcuts import get_object_or_404, render
 from django.contrib import messages
+
+from integrations.tasks import run_integration_execution_task
 # Create your views here.
 from .backends.config_manager import IntegrationConfigService
 from integrations.factories import BackendFactory
 from users.decorators import has_integration_permission
-from .models import Integration, SeverityLevel
+from .models import Integration, IntegrationExecution, SeverityLevel
 from django.http import HttpResponse, JsonResponse
 import json
-from .forms import IntegrationConfigForm
+from .forms import IntegrationConfigForm, IntegrationRunForm
 import traceback
 
-@has_integration_permission("tenable_sc", "can_execute")
-def run_tenable(request):
-    # Burada şimdilik dummy response
-    return JsonResponse({"status": "Tenable çalıştı"})
-
-@has_integration_permission("invicti", "can_execute")
-def run_invicti(request):
-    return JsonResponse({"status": "Invicti çalıştı"})
 
 def integration_detail(request, pk):
     integration = Integration.objects.get(pk=pk)
@@ -70,3 +64,53 @@ def IntegrationConfigView(request, provider, pk=None):
 
     else:
         return HttpResponse("Tenable config page")
+    
+
+# @login_required
+# @require_POST
+def run_integration(request, slug):
+    """
+    Herhangi bir entegrasyonu (Tenable, Invicti, Nessus vs.) çalıştıran 
+    tek ve merkezi fonksiyon.
+    """
+    # 1. Entegrasyonu ID'sine göre bul
+    integration = get_object_or_404(Integration, slug=slug)
+
+    if not integration.is_active:
+        return JsonResponse({"status": "error", "message": "Bu entegrasyon pasif durumda."}, status=400)
+
+    form = IntegrationRunForm(request.POST)
+    if form.is_valid():
+        filters = form.cleaned_data
+        json_filters = {
+            "date_from": filters['date_from'].isoformat() if filters['date_from'] else None,
+            "date_to": filters['date_to'].isoformat() if filters['date_to'] else None,
+            "severities": filters['severities']
+        }
+
+        # 4. History Kaydı Oluştur (PENDING)
+        execution = IntegrationExecution.objects.create(
+            integration=integration,
+            triggered_by=request.user,
+            filter_criteria=filters,
+            status="pending"
+        )
+
+        # 5. Generic Celery Task'ini Tetikle
+        # Sadece history ID'sini gönderiyoruz. Task gerisini halledecek.
+        task = run_integration_execution_task.delay(execution.id)
+
+        return JsonResponse({
+            "status": "success", 
+            "message": f"{integration.name} taraması başlatıldı.",
+            "execution_id": execution.id,
+            "task_id": task.id
+        })
+
+    else:
+        # Form geçersizse hataları dön
+        return JsonResponse({
+            "status": "error",
+            "message": "Filtre parametreleri hatalı.",
+            "errors": form.errors
+        }, status=400)

@@ -40,6 +40,17 @@ class BaseBackend(ABC):
         Bu sayede farklı kaynaklardan gelen veriler aynı yapıda olur.
         """
         pass
+
+    @abstractmethod
+    def run_pipeline(self, integration_execution):
+        """
+        Bu metod, entegrasyonun tüm adımlarını (Fetch, Map, Jira)
+        sırasıyla çalıştırır ve Execution/Step modellerini günceller.
+        
+        Args:
+            execution: IntegrationExecution model instance'ı
+        """
+        pass
     
     def validate_connection(self) -> bool:
         """
